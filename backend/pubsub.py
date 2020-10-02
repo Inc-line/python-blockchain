@@ -56,7 +56,6 @@ class PubSub():
         """
         Publish the message object to the channel.
         """
-        self.pubnub.publish().channel(channel).message(message).sync()
 
     def broadcast_block(self, block):
         """

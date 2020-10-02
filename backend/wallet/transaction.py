@@ -85,7 +85,6 @@ class Transaction:
             # id=transaction_json['id'],
             # output=transaction_json['output'],
             # input=transaction_json['input']
-            )
 
 
     @staticmethod
