@@ -2,6 +2,8 @@ import time
 import uuid
 
 from backend.wallet.wallet import Wallet
+from backend.config import MINING_REWARD, MINING_REWARD_INPUT
+
 
 class Transaction:
     """
@@ -14,7 +16,7 @@ class Transaction:
         amount=None, 
         id=None, 
         output=None, 
-        input=None
+        input=None,
     ):
         self.id = id or str(uuid.uuid4())[0:8]
         self.output = output or self.create_output(
@@ -70,10 +72,12 @@ class Transaction:
         self.input = self.create_input(sender_wallet, self.output)
 
     
-    def to_json(self):
+    def to_json(self, ignore=None):
         """
         Serialize the transaction.
         """
+        if ignore is None:
+            ignore = []
         return self.__dict__
 
     @staticmethod
@@ -81,7 +85,7 @@ class Transaction:
         """
         Deserialize a transaction's json representation back into a Transaction instance.
         """
-        return Transaction( **transaction_json
+        return Transaction(**transaction_json)
             # id=transaction_json['id'],
             # output=transaction_json['output'],
             # input=transaction_json['input']
@@ -93,6 +97,13 @@ class Transaction:
         Validate transaction.
         Raise an exception for invalid transactions.
         """
+
+        if transaction.input == MINING_REWARD_INPUT:
+            if list(transaction.output.values()) != [MINING_REWARD]:
+                raise Exception('Invalid mining rewards')
+            return
+
+
         output_total = sum(transaction.output.values())
 
         if transaction.input['amount'] != output_total:
@@ -106,9 +117,18 @@ class Transaction:
         ):
             raise Exception('Invalid signature')
 
+    @staticmethod
+    def reward_transaction(miner_wallet):
+        """
+        Generate a reward transaction that rewards a miner.
+        """
+        output = {}
+        output[miner_wallet.address] = MINING_REWARD
+
+        return Transaction(input=MINING_REWARD_INPUT, output=output)
 
 def main():
-    transaction = Transaction(Wallet(), 'recipient', 15) 
+    transaction = Transaction(Wallet()) 
     print(f'transaction.__dict__: {transaction.__dict__}')
 
     transaction_json = transaction.to_json()

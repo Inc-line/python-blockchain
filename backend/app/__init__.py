@@ -11,7 +11,7 @@ from backend.pubsub import PubSub
 
 app = Flask(__name__)
 blockchain = Blockchain()
-wallet = Wallet()
+wallet = Wallet(blockchain)
 transaction_pool = TransactionPool()
 pubsub = PubSub(blockchain, transaction_pool)
 
@@ -19,18 +19,19 @@ pubsub = PubSub(blockchain, transaction_pool)
 def route_default():
     return 'Welcome to the blockchain'
 
+
 @app.route('/blockchain')
 def route_blockchain():
     return jsonify(blockchain.to_json())
 
 @app.route('/blockchain/mine')
 def route_blockchain_mine():
-    transaction_data = 'stubbed_transaction_data'
-
+    transaction_data = transaction_pool.transaction_data()
+    transaction_data.append(Transaction.reward_transaction(wallet).to_json())
     blockchain.add_block(transaction_data)
-
     block = blockchain.chain[-1]
     pubsub.broadcast_block(block)
+    transaction_pool.clear_blockchain_transactions(blockchain)
 
     return jsonify(block.to_json())
 
@@ -46,15 +47,20 @@ def route_wallet_transact():
             transaction_data['amount']
         )
     else:
-        Transaction(
+        transaction = Transaction(
             wallet,
             transaction_data['recipient'],
             transaction_data['amount']
         )
 
     pubsub.broadcast_transaction(transaction)
+    print(f'transaction.to_json(): {transaction.to_json()}') 
+    return jsonify(transaction.to_json()) 
 
-    return jsonify(transaction.to_json())
+
+@app.route('/wallet/info')
+def route_wallet_info():
+    return jsonify({'address': wallet.address, 'balance': wallet.balance})
 
 
 ROOT_PORT = 5001
@@ -73,10 +79,11 @@ if os.environ.get('PEER') == 'True':
         print(f'\n -- Error synchronizing: {e}')
 
 
-app.config['JSON_SORT_KEYS'] = False
+app.config['JSON_SORT_KEYS'] = True
 
 
 app.run(port=PORT)
+# pylint: disable=undefined-variable
 
 
 

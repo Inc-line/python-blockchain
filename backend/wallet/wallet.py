@@ -1,6 +1,7 @@
 import json
 import uuid
 
+
 from backend.config import STARTING_BALANCE
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import ec
@@ -17,15 +18,21 @@ class Wallet:
     Keeps track of the miner's balance.
     Allow the miner to authorize transactions.
     """
-    def __init__(self):
+    def __init__(self, blockchain=None):
+        self.blockchain = blockchain
         self.address = str(uuid.uuid4())[0:8]
-        self.balance = STARTING_BALANCE
         self.private_key = ec.generate_private_key(
             ec.SECP256K1(), 
             default_backend()
         )
         self.public_key = self.private_key.public_key()
         self.serialize_public_key()
+
+    @property
+    def balance(self):
+        return Wallet.calculate_balance(self.blockchain, self.address)
+
+
 
     def sign(self, data):
         """
@@ -54,7 +61,7 @@ class Wallet:
         """
         Verify a signature based on the original public key and data.
         """
-        deserialized_public_key = serialization.load_pem_public_key(
+        from_json_public_key = serialization.load_pem_public_key(
             public_key.encode('utf-8'),
             default_backend()
         )
@@ -62,7 +69,7 @@ class Wallet:
         (r, s) = signature
 
         try:
-            deserialized_public_key.verify(
+            from_json_public_key.verify(
                 encode_dss_signature(r, s), 
                 json.dumps(data).encode('utf-8'), 
                 ec.ECDSA(hashes.SHA256())
@@ -70,6 +77,30 @@ class Wallet:
             return True
         except InvalidSignature:
             return False
+
+    @staticmethod
+    def calculate_balance(blockchain, address):
+        """
+        Calculate the balance of the given address considering the transaction data within the blockchain.
+
+        The balance is found by adding the output values that belong to the address since the most recent transaction by that address.
+        """
+        balance = STARTING_BALANCE
+
+        if not blockchain:
+            return balance
+
+        for block in blockchain.chain:
+            for transaction in block.data:
+                if transaction['input']['address'] == address:
+                    # Anytime the address conducts new transactions it resets its balance.
+                    balance = transaction['output'][address]
+                elif address in transaction['output']:
+                    balance += transaction['output'][address]
+
+        return balance
+
+
 
 
 
