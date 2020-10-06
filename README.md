@@ -31,3 +31,8 @@ Make sure to activate the virtual environment.
 export PEER=True && python -m backend.app       for Linux/Bash Systems
 env:PEER = 'True'; python -m backend.app        for Windows Powershell
 ```
+**Run the frontend**
+In the frontend directory:
+```
+npm run start
+```
